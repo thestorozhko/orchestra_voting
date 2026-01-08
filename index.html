@@ -101,8 +101,7 @@ function wrapLabel(text, maxLineLength = 14) {
 
   if (current) lines.push(current);
 
-  // максимум 3 строки
-  return lines.slice(0, 3);
+  return lines; // ✅ всё название целиком
 }
 
 /* =======================
