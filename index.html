@@ -5,19 +5,24 @@
   <title>Live Voting Results</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Chart.js v4 -->
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+
+  <!-- Inter font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap" rel="stylesheet">
 
   <style>
     body {
       margin: 0;
       background: #2E2548;
       color: #ffffff;
-      font-family: Inter, system-ui, -apple-system, sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
 
     .wrap {
-      padding: 24px;
+      padding: 32px;
       height: 100vh;
       box-sizing: border-box;
     }
@@ -42,12 +47,12 @@
 const CSV_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vSgk0LiaaXSFVCa8W7IzJSjO3xPZOAREsGPss2MiL3aLo_B62IAMdgciHCHPeHQ1WhbOk0fQ98hQ0bX/pub?output=csv';
 
-const REFRESH_INTERVAL = 1500; // 1.5 сек
+const REFRESH_INTERVAL = 1500;
 
 let chart;
 
 /* =======================
-   CSV-ПАРСЕР (поддержка кавычек и запятых)
+   CSV-парсер
 ======================= */
 
 function parseCSVLine(line) {
@@ -77,7 +82,7 @@ function parseCSVLine(line) {
 }
 
 /* =======================
-   ПЛАГИН: ЧИСЛА СПРАВА ОТ БАРОВ
+   ЧИСЛА СПРАВА ОТ БАРОВ
 ======================= */
 
 const valueLabelsPlugin = {
@@ -87,21 +92,16 @@ const valueLabelsPlugin = {
     const meta = chart.getDatasetMeta(0);
     const data = chart.data.datasets[0].data;
 
-    if (!meta || !meta.data) return;
-
     ctx.save();
     ctx.fillStyle = '#DBC06D';
-    ctx.font = '600 14px Inter, system-ui, sans-serif';
+    ctx.font = '700 18px Inter, system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
     meta.data.forEach((bar, index) => {
-      if (!bar || bar.x == null || bar.y == null) return;
-
+      if (!bar) return;
       const value = data[index];
-      if (value == null) return;
-
-      ctx.fillText(value, bar.x + 8, bar.y);
+      ctx.fillText(value, bar.x + 12, bar.y);
     });
 
     ctx.restore();
@@ -109,35 +109,26 @@ const valueLabelsPlugin = {
 };
 
 /* =======================
-   ЗАГРУЗКА И ПАРСИНГ CSV
+   ЗАГРУЗКА CSV
 ======================= */
 
 async function loadData() {
-  try {
-    const res = await fetch(CSV_URL + '&_=' + Date.now(), { cache: 'no-store' });
-    const text = await res.text();
+  const res = await fetch(CSV_URL + '&_=' + Date.now(), { cache: 'no-store' });
+  const text = await res.text();
 
-    // убираем пустые строки
-    const rows = text
-      .split('\n')
-      .map(r => r.trim())
-      .filter(Boolean);
+  const rows = text
+    .split('\n')
+    .map(r => r.trim())
+    .filter(Boolean);
 
-    if (rows.length < 2) return;
+  if (rows.length < 2) return;
 
-    // первая строка — названия оркестров
-    const labels = parseCSVLine(rows[0]);
+  const labels = parseCSVLine(rows[0]);
+  const values = parseCSVLine(rows[rows.length - 1])
+    .map(v => Number(v) || 0)
+    .slice(0, labels.length);
 
-    // последняя непустая строка — значения голосов
-    const values = parseCSVLine(rows[rows.length - 1])
-      .map(v => Number(v) || 0)
-      .slice(0, labels.length);
-
-    updateChart(labels, values);
-
-  } catch (err) {
-    console.error('CSV load error:', err);
-  }
+  updateChart(labels, values);
 }
 
 /* =======================
@@ -154,21 +145,30 @@ function initChart(labels, values) {
       datasets: [{
         data: values,
         backgroundColor: '#DBC06D',
-        borderRadius: 8,
-        barThickness: 22
+        borderRadius: 10,
+        barThickness: 36   // 🔥 толстые бары
       }]
     },
     options: {
       indexAxis: 'y',
       responsive: true,
       maintainAspectRatio: false,
+
+      layout: {
+        padding: {
+          left: 40   // пространство под длинные названия
+        }
+      },
+
       animation: {
         duration: 600,
         easing: 'easeOutQuart'
       },
+
       plugins: {
         legend: { display: false }
       },
+
       scales: {
         x: {
           display: false,
@@ -177,7 +177,12 @@ function initChart(labels, values) {
         y: {
           ticks: {
             color: '#ffffff',
-            font: { size: 13 }
+            font: {
+              family: 'Inter',
+              size: 20,     // 🔥 крупные названия
+              weight: '700' // bold
+            },
+            padding: 24     // расстояние до баров
           },
           grid: { display: false }
         }
@@ -188,7 +193,7 @@ function initChart(labels, values) {
 }
 
 /* =======================
-   ОБНОВЛЕНИЕ ГРАФИКА
+   ОБНОВЛЕНИЕ
 ======================= */
 
 function updateChart(labels, values) {
