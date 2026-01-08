@@ -201,8 +201,20 @@ function initChart(labels, values) {
           beginAtZero: true
         },
         y: {
-          display: false   // ❌ ось полностью скрыта
-        }
+  display: true,
+  grid: { display: false },
+  border: { display: false },
+  ticks: {
+    display: true,
+    color: '#ffffff',
+    font: {
+      family: 'Inter',
+      size: 28,
+      weight: '700'
+    },
+    padding: 28
+  }
+}
       }
     },
     plugins: [valueLabelsPlugin]
