@@ -44,15 +44,16 @@
    НАСТРОЙКИ
 ======================= */
 
+// ✅ СТАБИЛЬНЫЙ CSV (export, без pub)
 const CSV_URL =
-  'https://docs.google.com/spreadsheets/d/e/2PACX-1vSgk0LiaaXSFVCa8W7IzJSjO3xPZOAREsGPss2MiL3aLo_B62IAMdgciHCHPeHQ1WhbOk0fQ98hQ0bX/pub?output=csv';
+  'https://docs.google.com/spreadsheets/d/15T9AsI-PxHueFeZm2Rpt41Pr4zmr_GW0Pp9Zp3whbTo/export?format=csv&gid=1074128331';
 
 const REFRESH_INTERVAL = 1500;
 
 let chart;
 
 /* =======================
-   CSV-ПАРСЕР (поддержка кавычек)
+   CSV-ПАРСЕР (поддержка кавычек и запятых)
 ======================= */
 
 function parseCSVLine(line) {
@@ -123,7 +124,7 @@ const valueLabelsPlugin = {
 };
 
 /* =======================
-   ЗАГРУЗКА + СОРТИРОВКА
+   ЗАГРУЗКА CSV (БЕЗ СОРТИРОВКИ)
 ======================= */
 
 async function loadData() {
@@ -141,18 +142,8 @@ async function loadData() {
   const rawValues = parseCSVLine(rows[rows.length - 1])
     .map(v => Number(v) || 0);
 
-  // объединяем
-  const items = rawLabels.map((label, i) => ({
-    label: splitToTwoLines(label),
-    value: rawValues[i] ?? 0
-  }));
-
-  // сортировка по убыванию
-  items.sort((a, b) => b.value - a.value);
-
-  // обратно в массивы
-  const labels = items.map(i => i.label);
-  const values = items.map(i => i.value);
+  const labels = rawLabels.map(splitToTwoLines);
+  const values = rawValues.slice(0, labels.length);
 
   updateChart(labels, values);
 }
@@ -187,7 +178,7 @@ function initChart(labels, values) {
       },
 
       animation: {
-        duration: 700,
+        duration: 600,
         easing: 'easeOutQuart'
       },
 
@@ -212,7 +203,7 @@ function initChart(labels, values) {
             padding: 40
           },
           afterFit(scale) {
-            // 🔥 40% под названия / 60% под бары
+            // 🎯 40% под названия / 60% под бары
             scale.width = scale.chart.width * 0.4;
           }
         }
