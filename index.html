@@ -1,4 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Voting Results</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #2E2548;
+      color: #ffffff;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    }
+
+    .wrap {
+      padding: 24px;
+    }
+
+    canvas {
+      max-height: 520px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <canvas id="chart"></canvas>
+</div>
+
 <script>
+/* =======================
+   НАСТРОЙКИ
+======================= */
+
 const CSV_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vSgk0LiaaXSFVCa8W7IzJSjO3xPZOAREsGPss2MiL3aLo_B62IAMdgciHCHPeHQ1WhbOk0fQ98hQ0bX/pub?output=csv';
 
@@ -6,7 +43,10 @@ const REFRESH_INTERVAL = 1500;
 
 let chart;
 
-/* ===== ПЛАГИН: ЧИСЛА НАД СТОЛБЦАМИ ===== */
+/* =======================
+   ПЛАГИН: ЧИСЛА У КОНЦА СТОЛБЦОВ
+======================= */
+
 const valueLabelsPlugin = {
   id: 'valueLabels',
   afterDatasetsDraw(chart) {
@@ -15,38 +55,40 @@ const valueLabelsPlugin = {
     const data = chart.data.datasets[0].data;
 
     ctx.save();
-    ctx.fillStyle = '#e5e7eb';
+    ctx.fillStyle = '#DBC06D';
     ctx.font = '600 14px Inter, system-ui, sans-serif';
-    ctx.textAlign = 'center';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
 
     meta.data.forEach((bar, index) => {
       const value = data[index];
       if (value == null) return;
-      ctx.fillText(value, bar.x, bar.y - 8);
+
+      ctx.fillText(value, bar.x + 8, bar.y);
     });
 
     ctx.restore();
   }
 };
 
-/* ===== ЗАГРУЗКА CSV ===== */
+/* =======================
+   ЗАГРУЗКА CSV
+======================= */
+
 async function loadData() {
   try {
     const res = await fetch(CSV_URL + '&_=' + Date.now(), { cache: 'no-store' });
     const text = await res.text();
 
-    // разбиваем и убираем пустые строки
     const rows = text
       .split('\n')
       .map(r => r.trim())
-      .filter(r => r.length);
+      .filter(Boolean);
 
     if (rows.length < 2) return;
 
-    // первая строка — заголовки
     const labels = rows[0].split(',').map(v => v.trim());
 
-    // последняя строка — значения
     const values = rows[rows.length - 1]
       .split(',')
       .map(v => Number(v) || 0)
@@ -59,7 +101,10 @@ async function loadData() {
   }
 }
 
-/* ===== СОЗДАНИЕ ГРАФИКА ===== */
+/* =======================
+   СОЗДАНИЕ ГРАФИКА
+======================= */
+
 function initChart(labels, values) {
   const ctx = document.getElementById('chart');
 
@@ -69,11 +114,13 @@ function initChart(labels, values) {
       labels,
       datasets: [{
         data: values,
-        backgroundColor: '#38bdf8',
-        borderRadius: 10
+        backgroundColor: '#DBC06D',
+        borderRadius: 8,
+        barThickness: 22
       }]
     },
     options: {
+      indexAxis: 'y', // 🔥 горизонтальный график
       responsive: true,
       animation: {
         duration: 600,
@@ -84,12 +131,17 @@ function initChart(labels, values) {
       },
       scales: {
         x: {
-          ticks: { color: '#cbd5f5' },
-          grid: { display: false }
-        },
-        y: {
           display: false,
           beginAtZero: true
+        },
+        y: {
+          ticks: {
+            color: '#ffffff',
+            font: { size: 13 }
+          },
+          grid: {
+            display: false
+          }
         }
       }
     },
@@ -97,7 +149,10 @@ function initChart(labels, values) {
   });
 }
 
-/* ===== ОБНОВЛЕНИЕ ===== */
+/* =======================
+   ОБНОВЛЕНИЕ
+======================= */
+
 function updateChart(labels, values) {
   if (!chart) {
     initChart(labels, values);
@@ -109,7 +164,13 @@ function updateChart(labels, values) {
   chart.update();
 }
 
-/* ===== СТАРТ ===== */
+/* =======================
+   СТАРТ
+======================= */
+
 loadData();
 setInterval(loadData, REFRESH_INTERVAL);
 </script>
+
+</body>
+</html>
