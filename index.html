@@ -52,7 +52,7 @@ const REFRESH_INTERVAL = 1500;
 let chart;
 
 /* =======================
-   CSV-парсер
+   CSV-парсер (безопасный)
 ======================= */
 
 function parseCSVLine(line) {
@@ -82,26 +82,20 @@ function parseCSVLine(line) {
 }
 
 /* =======================
-   РАЗБИВКА НАЗВАНИЙ НА 2–3 СТРОКИ
+   ЖЁСТКО: РОВНО 2 СТРОКИ
 ======================= */
 
-function wrapLabel(text, maxLineLength = 14) {
+function splitToTwoLines(text) {
   const words = text.split(' ');
-  const lines = [];
-  let current = '';
+  if (words.length <= 2) {
+    return [text];
+  }
 
-  words.forEach(word => {
-    if ((current + ' ' + word).trim().length > maxLineLength) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = current ? current + ' ' + word : word;
-    }
-  });
-
-  if (current) lines.push(current);
-
-  return lines; // ✅ всё название целиком
+  const mid = Math.ceil(words.length / 2);
+  return [
+    words.slice(0, mid).join(' '),
+    words.slice(mid).join(' ')
+  ];
 }
 
 /* =======================
@@ -117,14 +111,13 @@ const valueLabelsPlugin = {
 
     ctx.save();
     ctx.fillStyle = '#DBC06D';
-    ctx.font = '700 22px Inter, system-ui, sans-serif';
+    ctx.font = '700 24px Inter, system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
     meta.data.forEach((bar, index) => {
       if (!bar) return;
-      const value = data[index];
-      ctx.fillText(value, bar.x + 16, bar.y);
+      ctx.fillText(data[index], bar.x + 20, bar.y);
     });
 
     ctx.restore();
@@ -147,7 +140,7 @@ async function loadData() {
   if (rows.length < 2) return;
 
   const rawLabels = parseCSVLine(rows[0]);
-  const labels = rawLabels.map(label => wrapLabel(label));
+  const labels = rawLabels.map(splitToTwoLines);
 
   const values = parseCSVLine(rows[rows.length - 1])
     .map(v => Number(v) || 0)
@@ -170,8 +163,8 @@ function initChart(labels, values) {
       datasets: [{
         data: values,
         backgroundColor: '#DBC06D',
-        borderRadius: 14,
-        barThickness: 84 // 🔥 очень толстые бары
+        borderRadius: 16,
+        barThickness: 96   // 🔥 очень толстые бары
       }]
     },
     options: {
@@ -181,7 +174,8 @@ function initChart(labels, values) {
 
       layout: {
         padding: {
-          left: 60
+          left: 0,
+          right: 40
         }
       },
 
@@ -200,20 +194,21 @@ function initChart(labels, values) {
           beginAtZero: true
         },
         y: {
-  display: true,
-  grid: { display: false },
-  border: { display: false },
-  ticks: {
-    display: true,
-    color: '#ffffff',
-    font: {
-      family: 'Inter',
-      size: 28,
-      weight: '700'
-    },
-    padding: 28
-  }
-}
+          grid: { display: false },
+          border: { display: false },
+          ticks: {
+            color: '#ffffff',
+            font: {
+              size: 30,
+              weight: '700'
+            },
+            padding: 36
+          },
+          afterFit(scale) {
+            // 🔥 фиксируем ширину зоны названий ≈ 40%
+            scale.width = scale.chart.width * 0.4;
+          }
+        }
       }
     },
     plugins: [valueLabelsPlugin]
