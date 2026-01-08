@@ -42,9 +42,39 @@
 const CSV_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vSgk0LiaaXSFVCa8W7IzJSjO3xPZOAREsGPss2MiL3aLo_B62IAMdgciHCHPeHQ1WhbOk0fQ98hQ0bX/pub?output=csv';
 
-const REFRESH_INTERVAL = 1500;
+const REFRESH_INTERVAL = 1500; // 1.5 сек
 
 let chart;
+
+/* =======================
+   CSV-ПАРСЕР (поддержка кавычек и запятых)
+======================= */
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      current += '"';
+      i++;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  result.push(current);
+  return result.map(v => v.trim());
+}
 
 /* =======================
    ПЛАГИН: ЧИСЛА СПРАВА ОТ БАРОВ
@@ -79,7 +109,7 @@ const valueLabelsPlugin = {
 };
 
 /* =======================
-   ЗАГРУЗКА CSV
+   ЗАГРУЗКА И ПАРСИНГ CSV
 ======================= */
 
 async function loadData() {
@@ -87,6 +117,7 @@ async function loadData() {
     const res = await fetch(CSV_URL + '&_=' + Date.now(), { cache: 'no-store' });
     const text = await res.text();
 
+    // убираем пустые строки
     const rows = text
       .split('\n')
       .map(r => r.trim())
@@ -94,16 +125,18 @@ async function loadData() {
 
     if (rows.length < 2) return;
 
-    const labels = rows[0].split(',').map(v => v.trim());
-    const values = rows[rows.length - 1]
-      .split(',')
+    // первая строка — названия оркестров
+    const labels = parseCSVLine(rows[0]);
+
+    // последняя непустая строка — значения голосов
+    const values = parseCSVLine(rows[rows.length - 1])
       .map(v => Number(v) || 0)
       .slice(0, labels.length);
 
     updateChart(labels, values);
 
   } catch (err) {
-    console.error('CSV error:', err);
+    console.error('CSV load error:', err);
   }
 }
 
@@ -155,183 +188,7 @@ function initChart(labels, values) {
 }
 
 /* =======================
-   ОБНОВЛЕНИЕ
-======================= */
-
-function updateChart(labels, values) {
-  if (!chart) {
-    initChart(labels, values);
-    return;
-  }
-
-  chart.data.labels = labels;
-  chart.data.datasets[0].data = values;
-  chart.update();
-}
-
-/* =======================
-   СТАРТ
-======================= */
-
-loadData();
-setInterval(loadData, REFRESH_INTERVAL);
-</script>
-
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <title>Live Voting Results</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <style>
-    body {
-      margin: 0;
-      background: #2E2548;
-      color: #ffffff;
-      font-family: Inter, system-ui, -apple-system, sans-serif;
-    }
-
-    .wrap {
-      padding: 24px;
-    }
-
-    canvas {
-      max-height: 520px;
-    }
-  </style>
-</head>
-<body>
-
-<div class="wrap">
-  <canvas id="chart"></canvas>
-</div>
-
-<script>
-/* =======================
-   НАСТРОЙКИ
-======================= */
-
-const CSV_URL =
-  'https://docs.google.com/spreadsheets/d/e/2PACX-1vSgk0LiaaXSFVCa8W7IzJSjO3xPZOAREsGPss2MiL3aLo_B62IAMdgciHCHPeHQ1WhbOk0fQ98hQ0bX/pub?output=csv';
-
-const REFRESH_INTERVAL = 1500;
-
-let chart;
-
-/* =======================
-   ПЛАГИН: ЧИСЛА У КОНЦА СТОЛБЦОВ
-======================= */
-
-const valueLabelsPlugin = {
-  id: 'valueLabels',
-  afterDatasetsDraw(chart) {
-    const { ctx } = chart;
-    const meta = chart.getDatasetMeta(0);
-    const data = chart.data.datasets[0].data;
-
-    ctx.save();
-    ctx.fillStyle = '#DBC06D';
-    ctx.font = '600 14px Inter, system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-
-    meta.data.forEach((bar, index) => {
-      const value = data[index];
-      if (value == null) return;
-
-      ctx.fillText(value, bar.x + 8, bar.y);
-    });
-
-    ctx.restore();
-  }
-};
-
-/* =======================
-   ЗАГРУЗКА CSV
-======================= */
-
-async function loadData() {
-  try {
-    const res = await fetch(CSV_URL + '&_=' + Date.now(), { cache: 'no-store' });
-    const text = await res.text();
-
-    const rows = text
-      .split('\n')
-      .map(r => r.trim())
-      .filter(Boolean);
-
-    if (rows.length < 2) return;
-
-    const labels = rows[0].split(',').map(v => v.trim());
-
-    const values = rows[rows.length - 1]
-      .split(',')
-      .map(v => Number(v) || 0)
-      .slice(0, labels.length);
-
-    updateChart(labels, values);
-
-  } catch (err) {
-    console.error('CSV error:', err);
-  }
-}
-
-/* =======================
-   СОЗДАНИЕ ГРАФИКА
-======================= */
-
-function initChart(labels, values) {
-  const ctx = document.getElementById('chart');
-
-  chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        data: values,
-        backgroundColor: '#DBC06D',
-        borderRadius: 8,
-        barThickness: 22
-      }]
-    },
-    options: {
-      indexAxis: 'y', // 🔥 горизонтальный график
-      responsive: true,
-      animation: {
-        duration: 600,
-        easing: 'easeOutQuart'
-      },
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: {
-          display: false,
-          beginAtZero: true
-        },
-        y: {
-          ticks: {
-            color: '#ffffff',
-            font: { size: 13 }
-          },
-          grid: {
-            display: false
-          }
-        }
-      }
-    },
-    plugins: [valueLabelsPlugin]
-  });
-}
-
-/* =======================
-   ОБНОВЛЕНИЕ
+   ОБНОВЛЕНИЕ ГРАФИКА
 ======================= */
 
 function updateChart(labels, values) {
