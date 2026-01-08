@@ -104,19 +104,31 @@ function splitToTwoLines(text) {
 const valueLabelsPlugin = {
   id: 'valueLabels',
   afterDatasetsDraw(chart) {
-    const { ctx } = chart;
+    const { ctx, chartArea } = chart;
     const meta = chart.getDatasetMeta(0);
     const data = chart.data.datasets[0].data;
 
     ctx.save();
-    ctx.fillStyle = '#DBC06D';
     ctx.font = '700 26px Inter, system-ui, sans-serif';
-    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
     meta.data.forEach((bar, index) => {
       if (!bar) return;
-      ctx.fillText(data[index], bar.x + 24, bar.y);
+
+      const value = String(data[index]);
+      const padding = 16;
+      const textWidth = ctx.measureText(value).width;
+
+      // 🔁 если число вылезает за край — рисуем внутри бара
+      if (bar.x + textWidth + padding > chartArea.right) {
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#2E2548'; // контраст к жёлтому
+        ctx.fillText(value, bar.x - padding, bar.y);
+      } else {
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#DBC06D';
+        ctx.fillText(value, bar.x + padding, bar.y);
+      }
     });
 
     ctx.restore();
