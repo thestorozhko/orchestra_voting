@@ -52,7 +52,7 @@ const REFRESH_INTERVAL = 1500;
 let chart;
 
 /* =======================
-   CSV-парсер (безопасный)
+   CSV-ПАРСЕР (поддержка кавычек)
 ======================= */
 
 function parseCSVLine(line) {
@@ -82,14 +82,12 @@ function parseCSVLine(line) {
 }
 
 /* =======================
-   ЖЁСТКО: РОВНО 2 СТРОКИ
+   НАЗВАНИЯ: РОВНО 2 СТРОКИ
 ======================= */
 
 function splitToTwoLines(text) {
   const words = text.split(' ');
-  if (words.length <= 2) {
-    return [text];
-  }
+  if (words.length <= 2) return [text];
 
   const mid = Math.ceil(words.length / 2);
   return [
@@ -111,13 +109,13 @@ const valueLabelsPlugin = {
 
     ctx.save();
     ctx.fillStyle = '#DBC06D';
-    ctx.font = '700 24px Inter, system-ui, sans-serif';
+    ctx.font = '700 26px Inter, system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
     meta.data.forEach((bar, index) => {
       if (!bar) return;
-      ctx.fillText(data[index], bar.x + 20, bar.y);
+      ctx.fillText(data[index], bar.x + 24, bar.y);
     });
 
     ctx.restore();
@@ -125,7 +123,7 @@ const valueLabelsPlugin = {
 };
 
 /* =======================
-   ЗАГРУЗКА CSV
+   ЗАГРУЗКА + СОРТИРОВКА
 ======================= */
 
 async function loadData() {
@@ -140,11 +138,21 @@ async function loadData() {
   if (rows.length < 2) return;
 
   const rawLabels = parseCSVLine(rows[0]);
-  const labels = rawLabels.map(splitToTwoLines);
+  const rawValues = parseCSVLine(rows[rows.length - 1])
+    .map(v => Number(v) || 0);
 
-  const values = parseCSVLine(rows[rows.length - 1])
-    .map(v => Number(v) || 0)
-    .slice(0, labels.length);
+  // объединяем
+  const items = rawLabels.map((label, i) => ({
+    label: splitToTwoLines(label),
+    value: rawValues[i] ?? 0
+  }));
+
+  // сортировка по убыванию
+  items.sort((a, b) => b.value - a.value);
+
+  // обратно в массивы
+  const labels = items.map(i => i.label);
+  const values = items.map(i => i.value);
 
   updateChart(labels, values);
 }
@@ -163,8 +171,8 @@ function initChart(labels, values) {
       datasets: [{
         data: values,
         backgroundColor: '#DBC06D',
-        borderRadius: 16,
-        barThickness: 96   // 🔥 очень толстые бары
+        borderRadius: 18,
+        barThickness: 96
       }]
     },
     options: {
@@ -174,13 +182,12 @@ function initChart(labels, values) {
 
       layout: {
         padding: {
-          left: 0,
           right: 40
         }
       },
 
       animation: {
-        duration: 600,
+        duration: 700,
         easing: 'easeOutQuart'
       },
 
@@ -199,13 +206,13 @@ function initChart(labels, values) {
           ticks: {
             color: '#ffffff',
             font: {
-              size: 30,
+              size: 32,
               weight: '700'
             },
-            padding: 36
+            padding: 40
           },
           afterFit(scale) {
-            // 🔥 фиксируем ширину зоны названий ≈ 40%
+            // 🔥 40% под названия / 60% под бары
             scale.width = scale.chart.width * 0.4;
           }
         }
