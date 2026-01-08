@@ -1,135 +1,173 @@
 <!DOCTYPE html>
 <html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Live Voting Results</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Voting Results</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <style>
-      body {
-        margin: 0;
-        background: #0f172a;
-        color: #e5e7eb;
-        font-family: Inter, system-ui, -apple-system, sans-serif;
-      }
+  <style>
+    body {
+      margin: 0;
+      background: #0f172a;
+      color: #e5e7eb;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    }
 
-      .wrap {
-        padding: 24px;
-      }
+    .wrap {
+      padding: 24px;
+    }
 
-      canvas {
-        max-height: 420px;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <canvas id="chart"></canvas>
-    </div>
+    canvas {
+      max-height: 420px;
+    }
+  </style>
+</head>
+<body>
 
-    <script>
-      /**
-       * НАСТРОЙКИ
-       */
-      const SPREADSHEET_ID = "1eXIDfssSkmzH2ofB0jkM5i0GDC7fOPlnEOMvfhs5Vn8";
-      const SHEET_GID = "1459377171"; // <-- gid листа result
-      const REFRESH_INTERVAL = 1500; // мс
+<div class="wrap">
+  <canvas id="chart"></canvas>
+</div>
 
-      const CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+<script>
+/* =======================
+   НАСТРОЙКИ
+======================= */
 
-      let chart;
-      let lastTotal = 0;
+const CSV_URL =
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vSgk0LiaaXSFVCa8W7IzJSjO3xPZOAREsGPss2MiL3aLo_B62IAMdgciHCHPeHQ1WhbOk0fQ98hQ0bX/pub?output=csv';
 
-      /**
-       * Загрузка и парсинг CSV
-       */
-      async function loadData() {
-        const res = await fetch(CSV_URL + "&_=" + Date.now(), {
-          cache: "no-store",
-        });
-        const text = await res.text();
+const REFRESH_INTERVAL = 1500; // 1.5 секунды
 
-        const rows = text.trim().split("\n");
-        if (rows.length < 2) return;
+let chart;
 
-        const labels = rows[0].split(",").map((v) => v.trim());
-        const values = rows[1].split(",").map((v) => Number(v));
+/* =======================
+   ПЛАГИН: ЧИСЛА НАД СТОЛБЦАМИ
+======================= */
 
-        updateChart(labels, values);
-      }
+const valueLabelsPlugin = {
+  id: 'valueLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(0);
+    const data = chart.data.datasets[0].data;
 
-      /**
-       * Инициализация графика
-       */
-      function initChart(labels, values) {
-        const ctx = document.getElementById("chart");
+    ctx.save();
+    ctx.fillStyle = '#e5e7eb';
+    ctx.font = '600 14px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
 
-        chart = new Chart(ctx, {
-          type: "bar",
-          data: {
-            labels,
-            datasets: [
-              {
-                data: values,
-                backgroundColor: "#38bdf8",
-                borderRadius: 10,
-              },
-            ],
+    meta.data.forEach((bar, index) => {
+      const value = data[index];
+      if (value === 0) return;
+
+      ctx.fillText(value, bar.x, bar.y - 8);
+    });
+
+    ctx.restore();
+  }
+};
+
+/* =======================
+   ЗАГРУЗКА CSV
+======================= */
+
+async function loadData() {
+  try {
+    const res = await fetch(CSV_URL + '&_=' + Date.now(), { cache: 'no-store' });
+    const text = await res.text();
+
+    const rows = text.trim().split('\n');
+
+    if (rows.length < 3) return;
+
+    // строка 1 — названия оркестров
+    const labels = rows[0]
+      .split(',')
+      .map(v => v.trim())
+      .filter(Boolean);
+
+    // строка 3 — значения голосов
+    const values = rows[2]
+      .split(',')
+      .map(v => Number(v) || 0)
+      .slice(0, labels.length);
+
+    updateChart(labels, values);
+
+  } catch (err) {
+    console.error('Ошибка загрузки CSV:', err);
+  }
+}
+
+/* =======================
+   СОЗДАНИЕ ГРАФИКА
+======================= */
+
+function initChart(labels, values) {
+  const ctx = document.getElementById('chart');
+
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: '#38bdf8',
+        borderRadius: 10
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: {
+        duration: 600,
+        easing: 'easeOutQuart'
+      },
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#cbd5f5',
+            font: { size: 13 }
           },
-          options: {
-            responsive: true,
-            animation: {
-              duration: 700,
-              easing: "easeOutQuart",
-            },
-            plugins: {
-              legend: { display: false },
-            },
-            scales: {
-              x: {
-                ticks: {
-                  color: "#cbd5f5",
-                  font: { size: 14 },
-                },
-                grid: { display: false },
-              },
-              y: {
-                beginAtZero: true,
-                ticks: {
-                  color: "#cbd5f5",
-                  stepSize: 1,
-                },
-                grid: {
-                  color: "rgba(255,255,255,0.08)",
-                },
-              },
-            },
-          },
-        });
-      }
-
-      /**
-       * Обновление данных графика
-       */
-      function updateChart(labels, values) {
-        if (!chart) {
-          initChart(labels, values);
-          return;
+          grid: { display: false }
+        },
+        y: {
+          display: false,
+          beginAtZero: true
         }
-
-        chart.data.labels = labels;
-        chart.data.datasets[0].data = values;
-        chart.update();
       }
+    },
+    plugins: [valueLabelsPlugin]
+  });
+}
 
-      /**
-       * Старт
-       */
-      loadData();
-      setInterval(loadData, REFRESH_INTERVAL);
-    </script>
-  </body>
+/* =======================
+   ОБНОВЛЕНИЕ ГРАФИКА
+======================= */
+
+function updateChart(labels, values) {
+  if (!chart) {
+    initChart(labels, values);
+    return;
+  }
+
+  chart.data.labels = labels;
+  chart.data.datasets[0].data = values;
+  chart.update();
+}
+
+/* =======================
+   СТАРТ
+======================= */
+
+loadData();
+setInterval(loadData, REFRESH_INTERVAL);
+</script>
+
+</body>
 </html>
