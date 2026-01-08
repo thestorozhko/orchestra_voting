@@ -8,10 +8,10 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
 
-  <!-- Inter font -->
+  <!-- Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&display=swap" rel="stylesheet">
 
   <style>
     body {
@@ -22,7 +22,7 @@
     }
 
     .wrap {
-      padding: 32px;
+      padding: 40px;
       height: 100vh;
       box-sizing: border-box;
     }
@@ -82,6 +82,30 @@ function parseCSVLine(line) {
 }
 
 /* =======================
+   РАЗБИВКА НАЗВАНИЙ НА 2–3 СТРОКИ
+======================= */
+
+function wrapLabel(text, maxLineLength = 14) {
+  const words = text.split(' ');
+  const lines = [];
+  let current = '';
+
+  words.forEach(word => {
+    if ((current + ' ' + word).trim().length > maxLineLength) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = current ? current + ' ' + word : word;
+    }
+  });
+
+  if (current) lines.push(current);
+
+  // максимум 3 строки
+  return lines.slice(0, 3);
+}
+
+/* =======================
    ЧИСЛА СПРАВА ОТ БАРОВ
 ======================= */
 
@@ -94,14 +118,14 @@ const valueLabelsPlugin = {
 
     ctx.save();
     ctx.fillStyle = '#DBC06D';
-    ctx.font = '700 18px Inter, system-ui, sans-serif';
+    ctx.font = '700 22px Inter, system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
     meta.data.forEach((bar, index) => {
       if (!bar) return;
       const value = data[index];
-      ctx.fillText(value, bar.x + 12, bar.y);
+      ctx.fillText(value, bar.x + 16, bar.y);
     });
 
     ctx.restore();
@@ -123,7 +147,9 @@ async function loadData() {
 
   if (rows.length < 2) return;
 
-  const labels = parseCSVLine(rows[0]);
+  const rawLabels = parseCSVLine(rows[0]);
+  const labels = rawLabels.map(label => wrapLabel(label));
+
   const values = parseCSVLine(rows[rows.length - 1])
     .map(v => Number(v) || 0)
     .slice(0, labels.length);
@@ -145,8 +171,8 @@ function initChart(labels, values) {
       datasets: [{
         data: values,
         backgroundColor: '#DBC06D',
-        borderRadius: 10,
-        barThickness: 36   // 🔥 толстые бары
+        borderRadius: 14,
+        barThickness: 84 // 🔥 очень толстые бары
       }]
     },
     options: {
@@ -156,7 +182,7 @@ function initChart(labels, values) {
 
       layout: {
         padding: {
-          left: 40   // пространство под длинные названия
+          left: 60
         }
       },
 
@@ -175,16 +201,7 @@ function initChart(labels, values) {
           beginAtZero: true
         },
         y: {
-          ticks: {
-            color: '#ffffff',
-            font: {
-              family: 'Inter',
-              size: 20,     // 🔥 крупные названия
-              weight: '700' // bold
-            },
-            padding: 24     // расстояние до баров
-          },
-          grid: { display: false }
+          display: false   // ❌ ось полностью скрыта
         }
       }
     },
