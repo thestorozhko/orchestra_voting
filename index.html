@@ -5,6 +5,187 @@
   <title>Live Voting Results</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- Chart.js v4 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #2E2548;
+      color: #ffffff;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    }
+
+    .wrap {
+      padding: 24px;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <canvas id="chart"></canvas>
+</div>
+
+<script>
+/* =======================
+   НАСТРОЙКИ
+======================= */
+
+const CSV_URL =
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vSgk0LiaaXSFVCa8W7IzJSjO3xPZOAREsGPss2MiL3aLo_B62IAMdgciHCHPeHQ1WhbOk0fQ98hQ0bX/pub?output=csv';
+
+const REFRESH_INTERVAL = 1500;
+
+let chart;
+
+/* =======================
+   ПЛАГИН: ЧИСЛА СПРАВА ОТ БАРОВ
+======================= */
+
+const valueLabelsPlugin = {
+  id: 'valueLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(0);
+    const data = chart.data.datasets[0].data;
+
+    if (!meta || !meta.data) return;
+
+    ctx.save();
+    ctx.fillStyle = '#DBC06D';
+    ctx.font = '600 14px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
+    meta.data.forEach((bar, index) => {
+      if (!bar || bar.x == null || bar.y == null) return;
+
+      const value = data[index];
+      if (value == null) return;
+
+      ctx.fillText(value, bar.x + 8, bar.y);
+    });
+
+    ctx.restore();
+  }
+};
+
+/* =======================
+   ЗАГРУЗКА CSV
+======================= */
+
+async function loadData() {
+  try {
+    const res = await fetch(CSV_URL + '&_=' + Date.now(), { cache: 'no-store' });
+    const text = await res.text();
+
+    const rows = text
+      .split('\n')
+      .map(r => r.trim())
+      .filter(Boolean);
+
+    if (rows.length < 2) return;
+
+    const labels = rows[0].split(',').map(v => v.trim());
+    const values = rows[rows.length - 1]
+      .split(',')
+      .map(v => Number(v) || 0)
+      .slice(0, labels.length);
+
+    updateChart(labels, values);
+
+  } catch (err) {
+    console.error('CSV error:', err);
+  }
+}
+
+/* =======================
+   СОЗДАНИЕ ГРАФИКА
+======================= */
+
+function initChart(labels, values) {
+  const ctx = document.getElementById('chart');
+
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: '#DBC06D',
+        borderRadius: 8,
+        barThickness: 22
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 600,
+        easing: 'easeOutQuart'
+      },
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          display: false,
+          beginAtZero: true
+        },
+        y: {
+          ticks: {
+            color: '#ffffff',
+            font: { size: 13 }
+          },
+          grid: { display: false }
+        }
+      }
+    },
+    plugins: [valueLabelsPlugin]
+  });
+}
+
+/* =======================
+   ОБНОВЛЕНИЕ
+======================= */
+
+function updateChart(labels, values) {
+  if (!chart) {
+    initChart(labels, values);
+    return;
+  }
+
+  chart.data.labels = labels;
+  chart.data.datasets[0].data = values;
+  chart.update();
+}
+
+/* =======================
+   СТАРТ
+======================= */
+
+loadData();
+setInterval(loadData, REFRESH_INTERVAL);
+</script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Voting Results</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
